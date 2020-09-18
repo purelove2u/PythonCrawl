@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import pprint
 
 
 naver_open_api = 'https://openapi.naver.com/v1/search/news.json'
