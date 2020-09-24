@@ -11,9 +11,26 @@ from selenium.webdriver.support.ui import WebDriverWait
 # 파싱 라이브러리
 from bs4 import BeautifulSoup
 
+# 엑셀 저장
+import openpyxl
+
+# 이미지를 저장
+import requests
+from io import BytesIO
+from fake_useragent import UserAgent
+
+# excel 기본작업
+workbook = openpyxl.Workbook()
+sheet1 = workbook.active
+sheet1.column_dimensions["A"].width = 52
+sheet1.column_dimensions["B"].width = 18
+sheet1.column_dimensions["C"].width = 10
+sheet1.append(["제품명", "가격", "이미지"])
+
+
 options = webdriver.ChromeOptions()
 # 브라우저 안 띄우기
-# options.add_argument("headless")
+options.add_argument("headless")
 # 그래픽 카드 사용 안하기
 options.add_argument("disable-gpu")
 # 브라우저 크기 지정
@@ -58,6 +75,9 @@ try:
 
     time.sleep(2)
 
+    # 엑셀 행 수 지정
+    ins_cnt = 1
+
     # 제품 목록 확인하기
     while cur_page <= target_crawl_num:
         soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -75,18 +95,34 @@ try:
         for item in product_list:
             if not item.find("div", class_="ad_header"):
                 # 상품명
-                print(item.select("p.prod_name > a")[0].text.strip())
+                prod_name = item.select("p.prod_name > a")[0].text.strip()
                 # 가격
-                print(item.select("p.price_sect > a")[0].text.strip())
+                prod_price = item.select("p.price_sect > a")[0].text.strip()
                 # 제품이미지
                 img = item.select("a.thumb_link > img")[0]
                 if img.get("data-original"):
-                    print(img["data-original"])
+                    url = img["data-original"]
                 else:
-                    print(img["src"])
+                    url = img["src"]
 
-                print()
-        print()
+                # 이미지 다운로드 하기
+                res = requests.get(
+                    url, headers={"User-Agent": UserAgent().chrome}
+                )
+                prod_img = BytesIO(res.content)
+
+                # 수집된 정보 엑셀에 저장
+                sheet1.append([prod_name, prod_price])
+                # 이미지 저장
+                img = openpyxl.drawing.image.Image(prod_img)
+                img.width = 30
+                img.height = 20
+                sheet1.add_image(img, "C" + str(ins_cnt + 1))
+
+                ins_cnt += 1
+
+        # 엑셀 저장
+        workbook.save("./resources/danawa_product.xlsx")
 
         # 현재 페이지 번호 변경
         cur_page += 1
